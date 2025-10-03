@@ -1,0 +1,268 @@
+// Prisma Schema for Oryxa
+// Database: MySQL/MariaDB (Hostinger)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// TENANT & USER MANAGEMENT
+// ============================================
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  email     String   @unique
+  logo      String?
+  address   String?
+  taxId     String?
+  currency  String   @default("USD")
+  
+  // Subscription
+  plan      String   @default("free") // free, starter, pro, enterprise
+  status    String   @default("active") // active, suspended, cancelled
+  trialEnds DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  users      User[]
+  invoices   Invoice[]
+  automations Automation[]
+  
+  @@index([slug])
+  @@index([email])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String   // Hashed with bcrypt
+  role      String   @default("member") // admin, member, viewer
+  avatar    String?
+  
+  // Multi-tenant
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+  
+  @@index([tenantId])
+  @@index([email])
+}
+
+// ============================================
+// INVOICES MODULE
+// ============================================
+
+model Invoice {
+  id             String   @id @default(cuid())
+  invoiceNumber  String   @unique
+  
+  // Tenant
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Client info
+  clientName     String
+  clientEmail    String
+  clientPhone    String?
+  clientAddress  String?
+  
+  // Invoice details
+  issueDate      DateTime @default(now())
+  dueDate        DateTime
+  status         String   @default("draft") // draft, sent, viewed, paid, overdue, cancelled
+  currency       String   @default("USD")
+  
+  // Amounts
+  subtotal       Float    @default(0)
+  taxTotal       Float    @default(0)
+  discountTotal  Float    @default(0)
+  total          Float    @default(0)
+  
+  // PDF & Storage
+  pdfUrl         String?
+  pdfGeneratedAt DateTime?
+  
+  // Metadata
+  notes          String?
+  terms          String?
+  tags           String?  @db.Text // JSON string or comma-separated tags for MySQL
+  
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  sentAt         DateTime?
+  paidAt         DateTime?
+  
+  // Relations
+  items          InvoiceItem[]
+  payments       Payment[]
+  jobHistory     JobHistory[]
+  
+  @@index([tenantId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([invoiceNumber])
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  description String
+  quantity    Float
+  unitPrice   Float
+  taxRate     Float   @default(0)
+  discount    Float   @default(0)
+  total       Float
+  
+  order       Int     @default(0)
+  
+  @@index([invoiceId])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  amount      Float
+  method      String   // card, bank_transfer, cash, paypal, stripe, razorpay
+  reference   String?
+  notes       String?
+  
+  paidAt      DateTime @default(now())
+  createdAt   DateTime @default(now())
+  
+  @@index([invoiceId])
+}
+
+// ============================================
+// AUTOMATIONS MODULE
+// ============================================
+
+model Automation {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Tenant
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Workflow definition
+  trigger     Json     // { type: "invoice_created", conditions: {...} }
+  actions     Json     // [{ type: "send_email", config: {...} }, ...]
+  
+  // Status
+  enabled     Boolean  @default(true)
+  
+  // Stats
+  runCount    Int      @default(0)
+  lastRunAt   DateTime?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  executions  AutomationExecution[]
+  
+  @@index([tenantId])
+  @@index([enabled])
+}
+
+model AutomationExecution {
+  id            String     @id @default(cuid())
+  automationId  String
+  automation    Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  
+  // Execution details
+  status        String     // running, success, failed, cancelled
+  triggerData   Json       // Snapshot of trigger event data
+  results       Json?      // Action results
+  error         String?
+  
+  // Timing
+  startedAt     DateTime   @default(now())
+  completedAt   DateTime?
+  duration      Int?       // milliseconds
+  
+  @@index([automationId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+// ============================================
+// BACKGROUND JOBS
+// ============================================
+
+model JobHistory {
+  id          String   @id @default(cuid())
+  
+  // Job details
+  jobType     String   // pdf_generation, send_email, send_whatsapp, webhook
+  jobId       String   @unique
+  status      String   // pending, processing, completed, failed
+  
+  // Related entity
+  entityType  String?  // invoice, automation
+  entityId    String?
+  invoice     Invoice? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  
+  // Payload & Result
+  payload     Json
+  result      Json?
+  error       String?
+  
+  // Timing
+  attempts    Int      @default(0)
+  maxRetries  Int      @default(3)
+  createdAt   DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  
+  @@index([jobType])
+  @@index([status])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+// ============================================
+// WEBHOOK LOGS (for debugging)
+// ============================================
+
+model WebhookLog {
+  id          String   @id @default(cuid())
+  
+  endpoint    String
+  method      String
+  headers     Json
+  body        Json
+  response    Json?
+  statusCode  Int?
+  
+  success     Boolean  @default(false)
+  error       String?
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([endpoint])
+  @@index([success])
+  @@index([createdAt])
+}

@@ -1,0 +1,281 @@
+# Oryxa API Sample Requests
+# Use with REST clients like Insomnia, Postman, or cURL
+
+## Base URL
+@baseUrl = http://localhost:3000
+@token = YOUR_JWT_TOKEN_HERE
+
+### ============================================
+### AUTHENTICATION
+### ============================================
+
+### Register New User
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "name": "John Doe",
+  "companyName": "Acme Inc"
+}
+
+### Login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@oryxa.com",
+  "password": "demo123"
+}
+
+### ============================================
+### INVOICES
+### ============================================
+
+### Create Invoice
+POST {{baseUrl}}/api/invoices
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "clientName": "Acme Corporation",
+  "clientEmail": "billing@acme.com",
+  "clientPhone": "+1234567890",
+  "clientAddress": "456 Client Ave, New York, NY 10001",
+  "items": [
+    {
+      "description": "Website Development - Initial Design",
+      "quantity": 1,
+      "unitPrice": 3000,
+      "taxRate": 18,
+      "discount": 0
+    },
+    {
+      "description": "Backend Integration",
+      "quantity": 1,
+      "unitPrice": 2000,
+      "taxRate": 18,
+      "discount": 10
+    }
+  ],
+  "dueDate": "2025-11-01",
+  "currency": "USD",
+  "notes": "Thank you for your business!",
+  "terms": "Payment due within 30 days."
+}
+
+### List All Invoices
+GET {{baseUrl}}/api/invoices?page=1&limit=20
+Authorization: Bearer {{token}}
+
+### List Invoices with Filter
+GET {{baseUrl}}/api/invoices?status=draft&search=Acme
+Authorization: Bearer {{token}}
+
+### Get Single Invoice
+GET {{baseUrl}}/api/invoices/inv_xyz789
+Authorization: Bearer {{token}}
+
+### Update Invoice
+PATCH {{baseUrl}}/api/invoices/inv_xyz789
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "status": "sent",
+  "notes": "Updated notes here"
+}
+
+### Send Invoice via Email
+POST {{baseUrl}}/api/invoices/inv_xyz789/send
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "method": "email",
+  "recipient": "billing@acme.com",
+  "message": "Please find attached your invoice."
+}
+
+### Send Invoice via WhatsApp
+POST {{baseUrl}}/api/invoices/inv_xyz789/send
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "method": "whatsapp",
+  "recipient": "+1234567890",
+  "message": "Your invoice is ready! Click to download."
+}
+
+### Delete Invoice
+DELETE {{baseUrl}}/api/invoices/inv_xyz789
+Authorization: Bearer {{token}}
+
+### ============================================
+### AUTOMATIONS
+### ============================================
+
+### Simulate Automation (Overdue Invoice)
+POST {{baseUrl}}/api/automations/simulate
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "trigger": "invoice_overdue",
+  "data": {
+    "invoiceId": "inv_xyz789",
+    "invoiceNumber": "INV-2025-001",
+    "clientName": "Acme Corp",
+    "clientEmail": "billing@acme.com",
+    "clientPhone": "+1234567890",
+    "total": 5900,
+    "currency": "USD",
+    "daysOverdue": 7
+  }
+}
+
+### Simulate Automation (Invoice Created)
+POST {{baseUrl}}/api/automations/simulate
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "trigger": "invoice_created",
+  "data": {
+    "invoiceId": "inv_xyz789",
+    "invoiceNumber": "INV-2025-001",
+    "clientName": "Acme Corp",
+    "clientEmail": "billing@acme.com",
+    "total": 5900,
+    "currency": "USD"
+  }
+}
+
+### Simulate Automation (Payment Received)
+POST {{baseUrl}}/api/automations/simulate
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "trigger": "payment_received",
+  "data": {
+    "invoiceId": "inv_xyz789",
+    "invoiceNumber": "INV-2025-001",
+    "amount": 5900,
+    "paymentMethod": "stripe"
+  }
+}
+
+### ============================================
+### JOBS & QUEUE STATUS
+### ============================================
+
+### Get Job Status
+GET {{baseUrl}}/api/jobs/job_abc123
+Authorization: Bearer {{token}}
+
+### Get Queue Statistics
+GET {{baseUrl}}/api/queue/stats
+Authorization: Bearer {{token}}
+
+### ============================================
+### WEBHOOKS (External → Oryxa)
+### ============================================
+
+### Stripe Webhook (Payment Received)
+POST {{baseUrl}}/api/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: t=1234567890,v1=signature_here
+
+{
+  "type": "payment_intent.succeeded",
+  "data": {
+    "object": {
+      "id": "pi_123456",
+      "amount": 5900,
+      "metadata": {
+        "invoiceId": "inv_xyz789"
+      }
+    }
+  }
+}
+
+### ============================================
+### CURL EXAMPLES
+### ============================================
+
+# Create Invoice
+curl -X POST http://localhost:3000/api/invoices \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "clientName": "Test Client",
+    "clientEmail": "test@example.com",
+    "items": [
+      {
+        "description": "Service",
+        "quantity": 1,
+        "unitPrice": 1000,
+        "taxRate": 10
+      }
+    ],
+    "dueDate": "2025-12-01",
+    "currency": "USD"
+  }'
+
+# List Invoices
+curl -X GET "http://localhost:3000/api/invoices?page=1&limit=10" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Send Invoice
+curl -X POST http://localhost:3000/api/invoices/inv_xyz789/send \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "method": "email",
+    "recipient": "client@example.com"
+  }'
+
+### ============================================
+### EXPECTED RESPONSES
+### ============================================
+
+# Success Response (Create Invoice)
+# HTTP 201 Created
+# {
+#   "id": "inv_xyz789",
+#   "invoiceNumber": "INV-2025-001",
+#   "status": "draft",
+#   "clientName": "Acme Corporation",
+#   "total": 5900,
+#   "currency": "USD",
+#   "pdfUrl": null,
+#   "jobId": "job_abc123",
+#   "message": "Invoice created successfully. PDF generation queued."
+# }
+
+# Error Response (Validation Failed)
+# HTTP 400 Bad Request
+# {
+#   "error": "Validation failed",
+#   "details": [
+#     {
+#       "field": "clientEmail",
+#       "message": "Invalid email address"
+#     }
+#   ]
+# }
+
+# Error Response (Unauthorized)
+# HTTP 401 Unauthorized
+# {
+#   "error": "Unauthorized"
+# }
+
+# Error Response (Not Found)
+# HTTP 404 Not Found
+# {
+#   "error": "Invoice not found"
+# }

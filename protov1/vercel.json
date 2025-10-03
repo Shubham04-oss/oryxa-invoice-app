@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "buildCommand": "cd apps/api && npm install && npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": "apps/api/.next",
+  "regions": ["sin1"],
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "JWT_SECRET": "@jwt_secret",
+    "SENDGRID_API_KEY": "@sendgrid_api_key",
+    "SENDGRID_FROM_EMAIL": "@sendgrid_from_email",
+    "B2_APPLICATION_KEY": "@b2_application_key",
+    "B2_ACCOUNT_ID": "@b2_account_id",
+    "B2_BUCKET_NAME": "@b2_bucket_name",
+    "STORAGE_PROVIDER": "@storage_provider"
+  },
+  "build": {
+    "env": {
+      "DATABASE_URL": "@database_url"
+    }
+  },
+  "functions": {
+    "apps/api/pages/api/**/*.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/apps/api/$1"
+    }
+  ]
+}

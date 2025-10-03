@@ -1,0 +1,17 @@
+{
+  "name": "oryxa-worker",
+  "version": "1.0.0",
+  "description": "Background job worker for Oryxa",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.19.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
