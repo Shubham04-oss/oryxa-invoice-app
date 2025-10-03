@@ -1,0 +1,7 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm install && npx prisma generate && cd apps/api && npm install && npm run build"
+
+[deploy]
+startCommand = "cd apps/api && npm start"
+restartPolicyType = "always"
